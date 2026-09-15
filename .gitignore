@@ -1,0 +1,108 @@
+# ==========================================
+# Python Core & Byte-compiled files
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ==========================================
+# Virtual Environments & Dependency Managers
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
++env/
+env.bak/
+venv.bak/
+__pypackages__/
+.poetry/
+.pdm-plugins/
+.pdm-build/
+
+# ==========================================
+# Distribution, Building, and Packaging
+# ==========================================
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==========================================
+# Testing, Coverage, and Code Quality
+# ==========================================
+.htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.black/
+
+# ==========================================
+# Jupyter Notebooks & Data Science
+# ==========================================
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+# Inline images in Jupyter notebooks can make git history very large
+# Uncomment the line below if you don't want to track notebooks at all
+# *.ipynb
+
+# ==========================================
+# Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.*
+!.env.example
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ==========================================
+# Databases & Media files
+# ==========================================
+*.db
+*.sqlite3
+# Uncomment if your project uploads media files locally
+# media/
+# uploads/
+
+# ==========================================
+# IDEs, Editors, and OS-specific files
+# ==========================================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+
+# Operating Systems
+.DS_Store
+Thumbs.db
