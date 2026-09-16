@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 # field label is not accidentally included in the capture.
 FIELD_PATTERNS = {
     "candidate_name": [
-        (r"(?:candidate'?s?|student'?s?|applicant'?s?)\s*(?:full\s*)?name\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.85),
+        (r"(?:candidate['\u2019]?s?|student['\u2019]?s?|applicant['\u2019]?s?)\s*(?:full\s*)?name\s*(?:\([^\r\n)]*\))?\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.9),
         (r"name\s*of\s*(?:the\s*)?(?:candidate|student|applicant)\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.85),
+        (r"(?:this\s+is\s+to\s+certify\s+that|certify\s+that)\s+([A-Za-z][A-Za-z.'\-]*(?:[ \t]+[A-Za-z][A-Za-z.'\-]*){1,5})[ \t]*(?:\r?\n|$)", 0.95),
+        (r"(?:mr|ms|mrs|miss)\s*/?\s*(?:mr|ms|mrs|miss)?\.?[ \t]+([A-Za-z][A-Za-z.\-]*(?:[ \t]+[A-Za-z][A-Za-z.\-]*){1,5})[ \t]*(?:\r?\n|$)", 0.8),
     ],
     "father_name": [
         (r"(?:father'?s?|guardian'?s?)\s*name\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.85),
-        (r"(?:s/?o|son\s+of|f/?o)\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.75),
+        (r"(?:s/?o|son\s+of)\s*[:\-]\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.75),
     ],
     "mother_name": [
         (r"(?:mother'?s?)\s*name\s*[:\-]?\s*([A-Z][A-Za-z.'\- ]{2,60})", 0.85),
@@ -32,32 +34,20 @@ FIELD_PATTERNS = {
     "address": [
         (r"(?:permanent\s+address|residential\s+address|address)\s*[:\-]?\s*([^\r\n]{10,150})", 0.7),
     ],
-    "seat_number": [
-        (r"(?:seat|exam\s*seat)\s*(?:no|number)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-/]{2,19})", 0.85),
-    ],
-    "centre_number": [
-        (r"(?:centre|center|exam\s*centre|exam\s*center)\s*(?:no|number|code)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-/]{1,19})", 0.85),
-    ],
-    "school_number": [
-        (r"(?:school|college|institution)\s*(?:no|number|code)\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-/]{1,19})", 0.85),
-    ],
     "board_name": [
-        (r"(?:board|examining\s+body|university)\s*(?:name)?\s*[:\-]?\s*([^\r\n]{3,100})", 0.75),
+        (r"(?:board|examining\s+body|university)\s*(?:name)?\s*[:\-]\s*([^\r\n]{5,100})", 0.75),
     ],
     "stream": [
-        (r"(?:stream|branch|faculty)\s*[:\-]?\s*(science|commerce|arts|humanities|engineering|medical|[A-Za-z][A-Za-z &/\-]{2,40})", 0.75),
+        (r"(?:stream|branch|faculty)\s*[:\-]?\s*(science|commerce|arts|humanities|engineering|medical)", 0.9),
     ],
     "exam_month_year": [
         (r"(?:exam(?:ination)?\s*(?:month\s*(?:and|&)\s*year|session|year)|month\s*of\s*exam)\s*[:\-]?\s*([^\r\n]{4,30})", 0.75),
     ],
     "percentage": [
-        (r"(?:percentage|percent|%age)\s*[:\-/a-z\s]*?(\d{1,3}(?:\.\d{1,2})?)\s*%?", 0.85),
-    ],
-    "total_marks": [
-        (r"(?:total\s*marks|marks\s*obtained|total)\s*[:\-]?\s*(\d{1,4}(?:\s*/\s*\d{1,4})?)", 0.8),
+        (r"(?:percentage|percent|%age)[^\r\n]{0,30}\b(100(?:\.\d{1,2})?|[0-9]?\d(?:\.\d{1,2})?)\s*%?", 0.85),
     ],
     "result": [
-        (r"\b(?:result|status)\b\s*[:\-]?\s*(pass(?:ed)?|fail(?:ed)?|distinction|first\s*class|second\s*class|[A-Z]+)", 0.9),
+        (r"\b(?:result|status)\b\s*[:\-]?\s*(pass(?:ed)?|fail(?:ed)?|distinction|first\s*class\s*(?:with\s*distinction)?|second\s*class|third\s*class|absent)\b", 0.9),
     ],
     "certificate_number": [
         (r"(?:certificate|statement)\s*(?:no|number)\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-/]{2,29})", 0.85),
@@ -72,6 +62,21 @@ FIELD_PATTERNS = {
     "issuing_authority": [
         (r"(?:issuing\s+authority|issued\s+by)\s*[:\-]?\s*([^\r\n]{3,100})", 0.75),
     ],
+    "village": [
+        (r"(?:village|gram)\s+(?:of\s+)?([A-Z][A-Za-z\s]{2,40})(?:\s+in\s+district|\s*,)", 0.75),
+    ],
+    "district": [
+        (r"district\s+([A-Z][A-Za-z\s]{2,40})(?:,|\s+state)", 0.75),
+    ],
+    "state": [
+        (r"state\s+of\s+([A-Z][A-Za-z]+)(?:\s+belongs|\.|,|\s*\n)", 0.75),
+    ],
+    "caste": [
+        (r"belongs\s+to\s+the\s+([A-Za-z\-\s]{2,50})\s+caste", 0.8),
+    ],
+    "caste_category": [
+        (r"(other\s+backward\s+class|obc|scheduled\s+caste|sc|scheduled\s+tribe|st|open|general)", 0.7),
+    ],
 }
 
 
@@ -83,6 +88,12 @@ def normalize_date(raw: str) -> str | None:
         except ValueError:
             continue
     return None
+
+
+def normalize_candidate_name(raw: str) -> str:
+    """Remove academic degree suffixes that OCR may append to a name."""
+    value = re.sub(r"\s+[,;\-]?\s*(?:B\.?A\.?|B\.?SC\.?|B\.?COM\.?|M\.?A\.?|M\.?SC\.?|M\.?COM\.?|DIPLOMA)\s*$", "", raw, flags=re.IGNORECASE)
+    return value.strip(" ,;-")
 
 
 def extract_with_rules(text: str) -> dict:
@@ -103,9 +114,19 @@ def extract_with_rules(text: str) -> dict:
                 continue
 
             if match:
-                value = match.group(1).strip()
+                try:
+                    value = match.group(1).strip()
+                except IndexError:
+                    logger.error(f"Pattern for field '{field}' has no capture group: {pattern}")
+                    continue  # skip this pattern, try the next one for this field
 
-                if field == "date_of_birth":
+                if field == "candidate_name":
+                    value = normalize_candidate_name(value)
+                    if value:
+                        extracted_fields[field] = value
+                        confidence[field] = base_confidence
+                        break
+                elif field == "date_of_birth":
                     normalized = normalize_date(value)
                     if normalized:
                         extracted_fields[field] = normalized

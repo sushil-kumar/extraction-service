@@ -32,10 +32,14 @@ def ocr_image_bytes(image_bytes: bytes) -> str:
         image = image.resize((image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
 
         candidates = [
+            pytesseract.image_to_string(image, config="--psm 3"),
             pytesseract.image_to_string(image, config="--psm 6"),
             pytesseract.image_to_string(image, config="--psm 11"),
         ]
-        return max((text.strip() for text in candidates), key=len, default="")
+        # Different page-segmentation modes recover different regions of a
+        # certificate. Keep all non-empty passes so field rules can use the
+        # pass that recognized a particular label/value pair.
+        return "\n\n".join(text.strip() for text in candidates if text.strip())
     except Exception as e:
         logger.error(f"Tesseract OCR failed: {e}")
         return ""

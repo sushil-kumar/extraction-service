@@ -1,22 +1,23 @@
 import logging
 from app.ocr import get_document_text, pdf_to_image_bytes
 from app.rules_extractor import extract_with_rules
-from app.llm_extractor import extract_with_llm, ExtractionError, LLMNotConfiguredError
 from app.mapping_profiles import apply_mapping
 from app.config import settings
+from app.extraction_utils import filter_placeholders
 
 logger = logging.getLogger(__name__)
+
 
 async def extract_fields_from_bytes(file_bytes: bytes, content_type: str, profile_name: str | None = None) -> dict:
     text = get_document_text(file_bytes, content_type)
 
-    # Step 1: always try free rules-based extraction first — works without any API key
-    rules_result = extract_with_rules(text)
-    extracted = rules_result["extracted_fields"]
-    confidence = rules_result["confidence"]
+    extracted = {}
+    confidence = {}
     note = None
+    llm_fields_raw = None
+    llm_confidence_raw = None
+    llm_succeeded = False
 
-    # Step 2: only attempt the LLM if it's actually configured
     if settings.llm_available:
         image_bytes = None
         media_type = None
@@ -28,21 +29,68 @@ async def extract_fields_from_bytes(file_bytes: bytes, content_type: str, profil
             media_type = content_type
 
         try:
-            llm_result = await extract_with_llm(text=text if text else None, image_bytes=image_bytes, media_type=media_type)
-            # LLM result fills gaps / overrides low-confidence regex matches
-            for field, value in llm_result["extracted_fields"].items():
-                if field not in extracted or confidence.get(field, 0) < 0.75:
-                    extracted[field] = value
-                    confidence[field] = llm_result["confidence"].get(field, 0.7)
-        except (LLMNotConfiguredError, ExtractionError) as e:
-            logger.warning(f"LLM extraction skipped/failed: {e}")
+            if settings.llm_provider == "gemini":
+                from app.gemini_extractor import extract_with_gemini
+                llm_result = await extract_with_gemini(text, image_bytes, media_type)
+            elif settings.llm_provider == "ollama":
+                from app.ollama_extractor import extract_with_ollama
+                if image_bytes is None:
+                    image_bytes = pdf_to_image_bytes(file_bytes)
+                    media_type = "image/png"
+                llm_result = await extract_with_ollama(image_bytes, media_type)
+            else:
+                from app.llm_extractor import extract_with_llm
+                llm_result = await extract_with_llm(text, image_bytes, media_type)
+
+            llm_fields_raw = llm_result["extracted_fields"]
+            llm_confidence_raw = llm_result["confidence"]
+
+            if llm_fields_raw:
+                extracted = dict(llm_fields_raw)
+                confidence = dict(llm_confidence_raw)
+                llm_succeeded = True
+
+        except Exception as e:
+            logger.warning(f"LLM extraction failed ({settings.llm_provider}): {e}")
             note = str(e)
     else:
-        logger.info("LLM not configured — returning rules-based extraction only")
-        note = "LLM not configured — showing free/regex extraction only"
+        note = f"LLM not configured for provider '{settings.llm_provider}'"
+
+    if not llm_succeeded:
+        logger.info("LLM extraction unavailable/failed — falling back to regex-based extraction")
+        rules_result = extract_with_rules(text)
+        for field, value in rules_result["extracted_fields"].items():
+            if field not in extracted:
+                extracted[field] = value
+                confidence[field] = rules_result["confidence"][field]
 
     if profile_name:
         mapped = apply_mapping(extracted, confidence, profile_name)
-        return {"extracted_fields": mapped["fields"], "confidence": mapped["confidence"], "note": note}
 
-    return {"extracted_fields": extracted, "confidence": confidence, "note": note}
+        extracted, confidence = filter_placeholders(extracted, confidence)
+        return {
+            "extracted_fields": mapped["fields"], "confidence": mapped["confidence"],
+            "note": note, "llm_fields": llm_fields_raw, "llm_confidence": llm_confidence_raw,
+        }
+
+    extracted, confidence = filter_placeholders(extracted, confidence)
+    return {
+        "extracted_fields": extracted, "confidence": confidence, "note": note,
+        "llm_fields": llm_fields_raw, "llm_confidence": llm_confidence_raw,
+    }
+
+
+def merge_document_results(results: list[dict]) -> dict:
+    """Merge extraction results from multiple documents. For each field,
+    keep the value from whichever document reported it with the highest confidence."""
+    merged_fields = {}
+    merged_confidence = {}
+
+    for result in results:
+        for field, value in result["extracted_fields"].items():
+            field_confidence = result["confidence"].get(field, 0.0)
+            if field not in merged_fields or field_confidence > merged_confidence[field]:
+                merged_fields[field] = value
+                merged_confidence[field] = field_confidence
+
+    return {"extracted_fields": merged_fields, "confidence": merged_confidence}
