@@ -51,7 +51,7 @@ async def extract_fields_from_bytes(file_bytes: bytes, content_type: str, profil
                 llm_succeeded = True
 
         except Exception as e:
-            logger.warning(f"LLM extraction failed ({settings.llm_provider}): {e}")
+            logger.exception(f"LLM extraction failed ({settings.llm_provider})")  # logger.exception includes full traceback
             note = str(e)
     else:
         note = f"LLM not configured for provider '{settings.llm_provider}'"
