@@ -17,7 +17,15 @@ MASTER_SCHEMA = {
     "stream": "Academic stream (Science/Commerce/Arts)",
 
     "exam_month_year": "Month and year of the examination",
-    "subjects_marks": "Subject-wise marks — extracted separately as a structured list",
+    # Included here (with description) purely so the model is prompted to notice
+    # subject-wise marks exist at all — empirically, omitting this entirely from
+    # MASTER_SCHEMA made the model skip subject extraction. It is still excluded
+    # from field_list in gemini_extractor.py / ollama_extractor.py (filtered by
+    # key name) and from the actual 'fields' output (stripped via SUBJECT_FIELD_ALIASES
+    # in ollama_extractor.py) — real subject data always comes from the separate
+    # 'subject_wise_marks' schema array or the fallback recovery parser, never from
+    # this key directly. Do not add a second/duplicate key for the same concept.
+    "subject_wise_marks": "Subject-wise marks, including marks obtained and maximum marks per subject — extracted separately as a structured list, not a single value",
     "total_marks": "Total marks obtained out of maximum",
     "percentage": "Overall percentage",
     "result": "PASS/FAIL or grade result",
@@ -31,4 +39,16 @@ MASTER_SCHEMA = {
     "issuing_authority": "Authority or body that issued the document",
     "issuing_place": "Place where the certificate was issued (e.g. city named at bottom of certificate)",
     "document_number": "Any ID/document/reference number printed on it",
+}
+
+REVIEW_RECOMMENDED_FIELDS = {
+    "document_number",
+    "certificate_serial_number",
+    "certificate_number",
+    "roll_number",
+    "seat_number",
+    "centre_number",
+    "school_number",
+    "date_of_birth",
+    "issue_date",
 }

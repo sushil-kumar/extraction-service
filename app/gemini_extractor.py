@@ -30,24 +30,17 @@ Rules:
 - Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the
   output at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder —
   simply omit that field_name entirely from the 'fields' array.
+- Some documents include a reference/document number combining a printed prefix with a
+  handwritten insertion (e.g. "No. MSC/SR/OBC/[handwritten]/200"). Capture the ENTIRE
+  reference string as printed, including every prefix/suffix segment — not just the
+  handwritten portion.
 """
 
 RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
-        "fields": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "value": {"type": "string"},
-                    "confidence": {"type": "number"},
-                },
-                "required": ["field_name", "value", "confidence"],
-            },
-        },
-        "subjects": {
+        "fields": {...},  # unchanged
+        "subject_wise_marks": {  # renamed from "subjects"
             "type": "array",
             "items": {
                 "type": "object",
@@ -60,7 +53,7 @@ RESPONSE_SCHEMA = {
             },
         },
     },
-    "required": ["fields", "subjects"],
+    "required": ["fields", "subject_wise_marks"],
 }
 
 MAX_RETRIES = 3
@@ -135,7 +128,7 @@ def _parse_response(text: str) -> dict:
             extracted[name] = entry.get("value")
             confidence[name] = entry.get("confidence", 0.7)
 
-    subjects = data.get("subjects", [])
+    subjects = data.get("subject_wise_marks", [])
     if subjects:
         extracted["subjects_marks"] = subjects
         confidence["subjects_marks"] = 1.0

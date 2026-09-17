@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5vl:7b"
+    ollama_keep_alive: str = "30m"
 
     max_file_size_mb: int = 10
     log_level: str = "INFO"

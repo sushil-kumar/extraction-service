@@ -46,6 +46,7 @@ async def extract(file: UploadFile = File(...), profile: str | None = None):
         confidence=result["confidence"],
         llmFields=result.get("llm_fields"),
         llmConfidence=result.get("llm_confidence"),
+        fieldsRequiringReview=result.get("fields_requiring_review", []),
         status="SUCCESS" if result["extracted_fields"] else "FAILED",
         note=result.get("note"),
     )

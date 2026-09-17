@@ -3,7 +3,7 @@ from app.ocr import get_document_text, pdf_to_image_bytes
 from app.rules_extractor import extract_with_rules
 from app.mapping_profiles import apply_mapping
 from app.config import settings
-from app.extraction_utils import filter_placeholders
+from app.extraction_utils import filter_placeholders, get_fields_requiring_review, validate_subject_marks_sum
 
 logger = logging.getLogger(__name__)
 
@@ -64,19 +64,25 @@ async def extract_fields_from_bytes(file_bytes: bytes, content_type: str, profil
                 extracted[field] = value
                 confidence[field] = rules_result["confidence"][field]
 
+    extracted, confidence = filter_placeholders(extracted, confidence)
+
+    # cross-check subject marks against reported total, append to note if mismatched
+    marks_warning = validate_subject_marks_sum(extracted)
+    if marks_warning:
+        note = f"{note}; {marks_warning}" if note else marks_warning
+
     if profile_name:
         mapped = apply_mapping(extracted, confidence, profile_name)
-
-        extracted, confidence = filter_placeholders(extracted, confidence)
         return {
             "extracted_fields": mapped["fields"], "confidence": mapped["confidence"],
             "note": note, "llm_fields": llm_fields_raw, "llm_confidence": llm_confidence_raw,
+            "fields_requiring_review": get_fields_requiring_review(mapped["fields"]),
         }
 
-    extracted, confidence = filter_placeholders(extracted, confidence)
     return {
         "extracted_fields": extracted, "confidence": confidence, "note": note,
         "llm_fields": llm_fields_raw, "llm_confidence": llm_confidence_raw,
+        "fields_requiring_review": get_fields_requiring_review(extracted),
     }
 
 

@@ -3,11 +3,12 @@ from typing import Optional
 
 
 class ExtractionResponse(BaseModel):
-    extractedFields: dict          # final merged result (regex + LLM)
+    extractedFields: dict
     confidence: dict
-    llmFields: Optional[dict] = None       # raw LLM-only fields, unmerged, for debugging/visibility
+    llmFields: Optional[dict] = None
     llmConfidence: Optional[dict] = None
-    status: str                     # SUCCESS | FAILED
+    fieldsRequiringReview: list[str] = []   # field names the student should double-check
+    status: str
     errorMessage: Optional[str] = None
     note: Optional[str] = None
 
