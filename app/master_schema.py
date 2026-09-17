@@ -1,4 +1,8 @@
 MASTER_SCHEMA = {
+    "document_type": "Classify this document as one of: marksheet, caste_certificate, "
+                      "leaving_certificate, id_card, domicile_certificate, income_certificate, other. "
+                      "Always include this field — pick the single best match.",
+
     "candidate_name": "Full name of the person as printed on the document",
     "father_name": "Father's or guardian's name",
     "mother_name": "Mother's name",
@@ -6,8 +10,11 @@ MASTER_SCHEMA = {
     "gender": "Gender as stated on the document",
     "address": "Full residential address if given as a single labeled field",
     "village": "Village name, if mentioned (common in caste/domicile certificates)",
+    "taluka": "Taluka/tehsil (sub-district administrative division), often abbreviated 'Tal.' — common on Maharashtra documents, distinct from district",
     "district": "District name",
     "state": "State name",
+    "place_of_birth": "Place of birth (town/village), as distinct from current address",
+    "nationality": "Nationality as stated on the document",
 
     "roll_number": "Student roll or enrollment number",
     "seat_number": "Exam seat number",
@@ -15,16 +22,15 @@ MASTER_SCHEMA = {
     "school_number": "School/college code or number",
     "board_name": "Examining board or university name",
     "stream": "Academic stream (Science/Commerce/Arts)",
+    "last_institution_attended": "Name of the school/college last attended, as stated on a leaving/transfer certificate",
+    "date_of_admission": "Date the student was admitted to the institution",
+    "progress": "Academic progress remark (e.g. Good/Average/Excellent) on a leaving certificate",
+    "conduct": "Conduct remark (e.g. Good/Satisfactory) on a leaving certificate",
+    "date_of_leaving": "Date the student left/was relieved from the institution",
+    "reason_of_leaving": "Stated reason for leaving the institution (e.g. Course completed, Transfer)",
+    "remarks": "Any additional remarks noted on the document",
 
     "exam_month_year": "Month and year of the examination",
-    # Included here (with description) purely so the model is prompted to notice
-    # subject-wise marks exist at all — empirically, omitting this entirely from
-    # MASTER_SCHEMA made the model skip subject extraction. It is still excluded
-    # from field_list in gemini_extractor.py / ollama_extractor.py (filtered by
-    # key name) and from the actual 'fields' output (stripped via SUBJECT_FIELD_ALIASES
-    # in ollama_extractor.py) — real subject data always comes from the separate
-    # 'subject_wise_marks' schema array or the fallback recovery parser, never from
-    # this key directly. Do not add a second/duplicate key for the same concept.
     "subject_wise_marks": "Subject-wise marks, including marks obtained and maximum marks per subject — extracted separately as a structured list, not a single value",
     "total_marks": "Total marks obtained out of maximum",
     "percentage": "Overall percentage",
@@ -34,6 +40,7 @@ MASTER_SCHEMA = {
     "caste_category": "Caste category — OBC/SC/ST/general etc.",
     "certificate_number": "Certificate or statement number",
     "certificate_serial_number": "Serial number (Sr. No.) on caste/community certificates",
+    "registration_number": "Registration number and/or year printed on a leaving/transfer certificate",
 
     "issue_date": "Date the document was issued",
     "issuing_authority": "Authority or body that issued the document",
@@ -51,4 +58,7 @@ REVIEW_RECOMMENDED_FIELDS = {
     "school_number",
     "date_of_birth",
     "issue_date",
+    "registration_number",
+    "date_of_admission",
+    "date_of_leaving",
 }

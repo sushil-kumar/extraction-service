@@ -56,3 +56,27 @@ def validate_subject_marks_sum(extracted_fields: dict) -> str | None:
         return f"Subject marks sum to {subject_sum:.0f} but total_marks reports {reported_total:.0f} — possible missing subject or OCR/extraction error"
 
     return None
+
+from app.extraction_utils import is_placeholder_value  # already defined above, reuse it
+
+def clean_subjects_marks(extracted_fields: dict) -> dict:
+    """Remove placeholder-only entries from subjects_marks, and drop the
+    whole key if nothing real is left. filter_placeholders() doesn't reach
+    inside nested lists, so this handles that case specifically."""
+    subjects = extracted_fields.get("subjects_marks")
+    if not subjects or not isinstance(subjects, list):
+        return extracted_fields
+
+    real_entries = [
+        entry for entry in subjects
+        if isinstance(entry, dict)
+        and not is_placeholder_value(entry.get("subject"))
+        and not is_placeholder_value(entry.get("marks_obtained"))
+    ]
+
+    if real_entries:
+        extracted_fields["subjects_marks"] = real_entries
+    else:
+        extracted_fields.pop("subjects_marks", None)
+
+    return extracted_fields

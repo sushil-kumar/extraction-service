@@ -16,24 +16,37 @@ data from student/academic/government-issued documents (ID cards, marksheets, ce
 caste/domicile certificates, forms).
 
 Rules:
+- ALWAYS include a 'document_type' entry in 'fields' as your very first entry, classifying
+  the document as one of: marksheet, caste_certificate, leaving_certificate, id_card,
+  domicile_certificate, income_certificate, other. This is required even if you're unsure —
+  pick the closest match.
 - Only include fields you can actually find explicit evidence for in the document.
-- Never guess or hallucinate — if a field isn't visibly present, leave it out.
+- Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the output
+  at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder — simply omit
+  that field_name entirely from the 'fields' array.
 - confidence is a 0.0-1.0 score for how certain you are about that field's value.
 - Normalize dates to YYYY-MM-DD.
-- Village/district/state are often embedded in a sentence rather than labeled separately —
-  e.g. "of Village X in District Y, State of Z" or "resides in the Y District of Z" — extract
-  village, district, and state as separate fields whenever you see this pattern, even without
-  an explicit "Address:" label. Only use the 'address' field itself for a full address given
-  as one continuous labeled block.
-- For subject-wise marks: add one entry per subject to the 'subjects' array. Do not put
-  subject marks into 'fields'.
-- Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the
-  output at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder —
-  simply omit that field_name entirely from the 'fields' array.
+- Subject-wise marks are IMPORTANT and MUST be extracted whenever a marks table is present:
+  add one entry per subject to the 'subject_wise_marks' array, with subject name and marks
+  obtained. Do not put subject marks into 'fields'.
+- If the document has no subject-wise marks table at all (e.g. leaving certificates, caste
+  certificates), do NOT add any entries to 'subject_wise_marks' — leave the array completely
+  empty rather than adding a placeholder entry.
 - Some documents include a reference/document number combining a printed prefix with a
-  handwritten insertion (e.g. "No. MSC/SR/OBC/[handwritten]/200"). Capture the ENTIRE
-  reference string as printed, including every prefix/suffix segment — not just the
-  handwritten portion.
+  handwritten insertion. Capture the ENTIRE reference string as printed.
+- Geographic details appear in different patterns depending on document type. Two common
+  patterns on Maharashtra documents:
+  1. "Village X in District Y, State of Z" (caste/domicile certificates) — extract village,
+     district, and state directly.
+  2. "Place, Tal. Taluka (District)" e.g. "Chinchgharpada, Tal. Wada (Thane)" — here "Tal."
+     introduces the TALUKA (not district), and the bracketed name afterward is the DISTRICT.
+     Do not put the Taluka value into 'district' — use the 'taluka' field for it. Only put
+     a value into 'state' if a state name is explicitly present; do not infer or guess it.
+- When a date is given BOTH in words and in bracketed numeric form (e.g. "Twenty December
+  Nineteen Eighty Two (20/12/1982)"), read the word form carefully and use it to verify the
+  numeric form — they must match. If they conflict, prefer whichever one you can read with
+  higher certainty, and lower your confidence score for that field if there's any ambiguity
+  between the two given forms.
 """
 
 RESPONSE_SCHEMA = {

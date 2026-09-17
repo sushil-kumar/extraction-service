@@ -3,7 +3,7 @@ from app.ocr import get_document_text, pdf_to_image_bytes
 from app.rules_extractor import extract_with_rules
 from app.mapping_profiles import apply_mapping
 from app.config import settings
-from app.extraction_utils import filter_placeholders, get_fields_requiring_review, validate_subject_marks_sum
+from app.extraction_utils import filter_placeholders, get_fields_requiring_review, validate_subject_marks_sum, clean_subjects_marks
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,10 @@ async def extract_fields_from_bytes(file_bytes: bytes, content_type: str, profil
                 confidence[field] = rules_result["confidence"][field]
 
     extracted, confidence = filter_placeholders(extracted, confidence)
+
+    extracted = clean_subjects_marks(extracted)
+    if "subjects_marks" not in extracted:
+        confidence.pop("subjects_marks", None)  # keep confidence dict in sync
 
     # cross-check subject marks against reported total, append to note if mismatched
     marks_warning = validate_subject_marks_sum(extracted)
