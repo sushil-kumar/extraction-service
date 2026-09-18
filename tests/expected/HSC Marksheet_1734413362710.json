@@ -1,0 +1,56 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "document_type": "marksheet",
+    "candidate_name": "Kamble Ishita Raju",
+    "mother_name": "Nita",
+    "stream": "SCIENCE",
+    "seat_number": "V048918",
+    "centre_number": "0736",
+    "school_number": "08.04.024",
+    "board_name": "Maharashtra State Board Of Secondary and Higher Secondary Education, Pune",
+    "exam_month_year": "FEBRUARY-23",
+    "total_marks": "398",
+    "percentage": "66.33",
+    "result": "PASS",
+    "certificate_number": "H1236102271",
+    "certificate_serial_number": "102271",
+    "subjects_marks": [
+      {
+        "subject": "ENGLISH",
+        "marks_obtained": "90",
+        "max_marks": ""
+      },
+      {
+        "subject": "PHYSICS",
+        "marks_obtained": "42",
+        "max_marks": ""
+      },
+      {
+        "subject": "CHEMISTRY",
+        "marks_obtained": "36",
+        "max_marks": ""
+      },
+      {
+        "subject": "BIOLOGY",
+        "marks_obtained": "44",
+        "max_marks": ""
+      },
+      {
+        "subject": "FRESH WATER FISH CULTURE",
+        "marks_obtained": "86",
+        "max_marks": ""
+      },
+      {
+        "subject": "ENV. EDU. & WATER SECURITY",
+        "marks_obtained": "A",
+        "max_marks": ""
+      },
+      {
+        "subject": "HEALTH & PHYSICAL EDUCATION",
+        "marks_obtained": "A",
+        "max_marks": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Khairnar Rutuja Kamlakar",
+    "mother_name": "Dhanashree",
+    "result": "PASS",
+    "total_marks": "600",
+    "percentage": "58.83"
+  }
+}

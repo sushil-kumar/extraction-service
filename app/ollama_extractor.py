@@ -32,9 +32,12 @@ Rules:
 - If the document has no subject-wise marks table at all (e.g. leaving certificates, caste
   certificates), do NOT add any entries to 'subject_wise_marks' — leave the array completely
   empty rather than adding a placeholder entry.
-- Some documents include a reference/document number that combines a printed prefix with a
-  handwritten insertion (e.g. "No. ABC/DE/ST/[handwritten]/900"). Capture the ENTIRE reference
-  string as printed, including all prefix segments — not just the handwritten portion.
+- Reference/document numbers are ALWAYS a single field, even when part of the number is
+  handwritten and part is printed. Never split one reference number across two separate
+  field entries. EXAMPLE: if a document shows a printed line reading "No. MSC/SR/OBC/" then
+  a handwritten insertion "R-4921" then printed "/200", the correct output is ONE field
+  entry with value "MSC/SR/OBC/R-4921/200" — not two entries, one for the prefix and one
+  for the handwritten part.
 - Geographic details appear in different patterns depending on document type. Two common
   patterns on Maharashtra documents:
   1. "Village X in District Y, State of Z" — extract village, district, and state directly.
@@ -42,10 +45,13 @@ Rules:
      introduces the TALUKA (not district), and the bracketed name afterward is the DISTRICT.
      Do not put the Taluka value into 'district' — use the 'taluka' field for it. Only put
      a value into 'state' if a state name is explicitly present; do not infer or guess it.
-- When a date is given BOTH in words and in bracketed numeric form, read the word form
-  carefully and use it to verify the numeric form — they must match. If they conflict, prefer
-  whichever one you can read with higher certainty, and lower your confidence score if there's
-  any ambiguity.
+- When a date is given BOTH in words and in bracketed numeric form, read each digit of the
+  bracketed form carefully, one at a time, and cross-check the decade/unit digits specifically
+  against the spelled-out words. EXAMPLE: "Twenty December Nineteen Eighty Two (20/12/1982)"
+  — the words "Eighty Two" confirm the year ends in 82, so the correct date_of_birth is
+  "1982-12-20". Do not transpose or misread digits in the bracketed form; if the two forms
+  genuinely conflict after careful digit-by-digit reading, lower your confidence score for
+  that field rather than guessing.
 """
 
 class ExtractionError(Exception):

@@ -1,0 +1,19 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Rutuja Kamlakar Khairnar",
+    "father_name": "Kamlakar Janardhan Khairnar",
+    "village": "Vidyavihar",
+    "district": "Mumbai Suburban",
+    "state": "Maharashtra",
+    "nationality": "Indian",
+    "caste": "Hindu-Shimpi",
+    "caste_category": "OBC",
+    "certificate_number": "MSC/SR/OBC/R-4921/200",
+    "certificate_serial_number": "153",
+    "issue_date": "29 AUG 2008",
+    "issuing_authority": "DEPUTY COLLECTOR, MUMBAI SUBURBAN DIST.",
+    "issuing_place": "Mulund",
+    "document_number": "MSC/SR/OBC/R-4921/200"
+  }
+}
