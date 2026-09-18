@@ -5,7 +5,6 @@ import logging
 from ollama import Client
 from pydantic import BaseModel
 from app.config import settings
-from app.master_schema import MASTER_SCHEMA
 from app.extraction_utils import filter_placeholders
 
 logger = logging.getLogger(__name__)
@@ -14,13 +13,13 @@ client = Client(host=settings.ollama_host)
 
 SYSTEM_PROMPT = """You are a document data extraction assistant. You extract structured
 data from student/academic/government-issued documents (ID cards, marksheets, certificates,
-caste/domicile certificates, forms).
+caste/domicile certificates, forms, land records, society registration documents). Documents
+may be in English, Marathi, or a mix of both — read and extract regardless of language.
 
 Rules:
 - ALWAYS include a 'document_type' entry in 'fields' as your very first entry, classifying
-  the document as one of: marksheet, caste_certificate, leaving_certificate, id_card,
-  domicile_certificate, income_certificate, other. This is required even if you're unsure —
-  pick the closest match.
+  the document using the categories given in the field list below. This is required even if
+  you're unsure — pick the closest match.
 - Only include fields you can actually find explicit evidence for in the document.
 - Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the output
   at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder — simply omit
@@ -33,21 +32,20 @@ Rules:
 - If the document has no subject-wise marks table at all (e.g. leaving certificates, caste
   certificates), do NOT add any entries to 'subject_wise_marks' — leave the array completely
   empty rather than adding a placeholder entry.
-- Some documents include a reference/document number combining a printed prefix with a
-  handwritten insertion. Capture the ENTIRE reference string as printed.
+- Some documents include a reference/document number that combines a printed prefix with a
+  handwritten insertion (e.g. "No. ABC/DE/ST/[handwritten]/900"). Capture the ENTIRE reference
+  string as printed, including all prefix segments — not just the handwritten portion.
 - Geographic details appear in different patterns depending on document type. Two common
   patterns on Maharashtra documents:
-  1. "Village X in District Y, State of Z" (caste/domicile certificates) — extract village,
-     district, and state directly.
+  1. "Village X in District Y, State of Z" — extract village, district, and state directly.
   2. "Place, Tal. Taluka (District)" e.g. "Chinchgharpada, Tal. Wada (Thane)" — here "Tal."
      introduces the TALUKA (not district), and the bracketed name afterward is the DISTRICT.
      Do not put the Taluka value into 'district' — use the 'taluka' field for it. Only put
      a value into 'state' if a state name is explicitly present; do not infer or guess it.
-- When a date is given BOTH in words and in bracketed numeric form (e.g. "Twenty December
-  Nineteen Eighty Two (20/12/1982)"), read the word form carefully and use it to verify the
-  numeric form — they must match. If they conflict, prefer whichever one you can read with
-  higher certainty, and lower your confidence score for that field if there's any ambiguity
-  between the two given forms.
+- When a date is given BOTH in words and in bracketed numeric form, read the word form
+  carefully and use it to verify the numeric form — they must match. If they conflict, prefer
+  whichever one you can read with higher certainty, and lower your confidence score if there's
+  any ambiguity.
 """
 
 class ExtractionError(Exception):
@@ -128,8 +126,8 @@ def _parse_subjects_fallback(raw_value: str) -> list[dict] | None:
     return entries if entries else None
 
 
-async def extract_with_ollama(image_bytes: bytes, media_type: str) -> dict:
-    field_list = "\n".join(f"- {k}: {v}" for k, v in MASTER_SCHEMA.items() if k != "subjects_marks")
+async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict) -> dict:
+    field_list = "\n".join(f"- {k}: {v}" for k, v in schema.items())
     user_prompt = (
         f"{SYSTEM_PROMPT}\n\n"
         f"Extract any of these fields present in the document. For each one found, "
@@ -182,7 +180,7 @@ async def extract_with_ollama(image_bytes: bytes, media_type: str) -> dict:
     extracted = {}
     confidence = {}
     for entry in parsed.fields:
-        if entry is not None and entry.field_name in MASTER_SCHEMA:
+        if entry is not None and entry.field_name in schema:
             extracted[entry.field_name] = entry.value
             confidence[entry.field_name] = entry.confidence
 

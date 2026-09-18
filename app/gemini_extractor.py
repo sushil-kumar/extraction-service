@@ -4,7 +4,6 @@ import asyncio
 from google import genai
 from google.genai import types
 from app.config import settings
-from app.master_schema import MASTER_SCHEMA
 from app.extraction_utils import filter_placeholders
 
 logger = logging.getLogger(__name__)
@@ -13,13 +12,13 @@ client = genai.Client(api_key=settings.gemini_api_key) if settings.gemini_api_ke
 
 SYSTEM_PROMPT = """You are a document data extraction assistant. You extract structured
 data from student/academic/government-issued documents (ID cards, marksheets, certificates,
-caste/domicile certificates, forms).
+caste/domicile certificates, forms, land records, society registration documents). Documents
+may be in English, Marathi, or a mix of both — read and extract regardless of language.
 
 Rules:
 - ALWAYS include a 'document_type' entry in 'fields' as your very first entry, classifying
-  the document as one of: marksheet, caste_certificate, leaving_certificate, id_card,
-  domicile_certificate, income_certificate, other. This is required even if you're unsure —
-  pick the closest match.
+  the document using the categories given in the field list below. This is required even if
+  you're unsure — pick the closest match.
 - Only include fields you can actually find explicit evidence for in the document.
 - Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the output
   at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder — simply omit
@@ -28,46 +27,22 @@ Rules:
 - Normalize dates to YYYY-MM-DD.
 - Subject-wise marks are IMPORTANT and MUST be extracted whenever a marks table is present:
   add one entry per subject to the 'subject_wise_marks' array, with subject name and marks
-  obtained. Do not put subject marks into 'fields'.
-- If the document has no subject-wise marks table at all (e.g. leaving certificates, caste
-  certificates), do NOT add any entries to 'subject_wise_marks' — leave the array completely
-  empty rather than adding a placeholder entry.
+  obtained. Do not put subject marks into 'fields'. If there is no marks table at all, leave
+  'subject_wise_marks' completely empty — do not add a placeholder entry.
 - Some documents include a reference/document number combining a printed prefix with a
   handwritten insertion. Capture the ENTIRE reference string as printed.
 - Geographic details appear in different patterns depending on document type. Two common
   patterns on Maharashtra documents:
-  1. "Village X in District Y, State of Z" (caste/domicile certificates) — extract village,
-     district, and state directly.
+  1. "Village X in District Y, State of Z" — extract village, district, and state directly.
   2. "Place, Tal. Taluka (District)" e.g. "Chinchgharpada, Tal. Wada (Thane)" — here "Tal."
      introduces the TALUKA (not district), and the bracketed name afterward is the DISTRICT.
      Do not put the Taluka value into 'district' — use the 'taluka' field for it. Only put
      a value into 'state' if a state name is explicitly present; do not infer or guess it.
-- When a date is given BOTH in words and in bracketed numeric form (e.g. "Twenty December
-  Nineteen Eighty Two (20/12/1982)"), read the word form carefully and use it to verify the
-  numeric form — they must match. If they conflict, prefer whichever one you can read with
-  higher certainty, and lower your confidence score for that field if there's any ambiguity
-  between the two given forms.
+- When a date is given BOTH in words and in bracketed numeric form, read the word form
+  carefully and use it to verify the numeric form — they must match. If they conflict, prefer
+  whichever one you can read with higher certainty, and lower your confidence score if there's
+  any ambiguity.
 """
-
-RESPONSE_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "fields": {...},  # unchanged
-        "subject_wise_marks": {  # renamed from "subjects"
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "subject": {"type": "string"},
-                    "marks_obtained": {"type": "string"},
-                    "max_marks": {"type": "string"},
-                },
-                "required": ["subject", "marks_obtained"],
-            },
-        },
-    },
-    "required": ["fields", "subject_wise_marks"],
-}
 
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 2
@@ -79,14 +54,47 @@ class LLMNotConfiguredError(ExtractionError):
     pass
 
 
-async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media_type: str | None) -> dict:
+def _build_response_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "fields": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "field_name": {"type": "string"},
+                        "value": {"type": "string"},
+                        "confidence": {"type": "number"},
+                    },
+                    "required": ["field_name", "value", "confidence"],
+                },
+            },
+            "subject_wise_marks": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "subject": {"type": "string"},
+                        "marks_obtained": {"type": "string"},
+                        "max_marks": {"type": "string"},
+                    },
+                    "required": ["subject", "marks_obtained"],
+                },
+            },
+        },
+        "required": ["fields", "subject_wise_marks"],
+    }
+
+
+async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media_type: str | None, schema: dict) -> dict:
     if not settings.llm_available or client is None:
         raise LLMNotConfiguredError("Gemini extraction unavailable: no GEMINI_API_KEY configured")
 
-    field_list = "\n".join(f"- {k}: {v}" for k, v in MASTER_SCHEMA.items() if k != "subjects_marks")
+    field_list = "\n".join(f"- {k}: {v}" for k, v in schema.items())
     user_prompt = (
         f"Extract any of these fields present in the document into 'fields':\n{field_list}\n\n"
-        f"Separately, extract subject-wise marks into 'subjects' — one entry per subject."
+        f"Separately, extract subject-wise marks into 'subject_wise_marks' if a marks table is present."
     )
 
     if image_bytes:
@@ -100,7 +108,7 @@ async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media
         system_instruction=SYSTEM_PROMPT,
         max_output_tokens=4096,
         response_mime_type="application/json",
-        response_schema=RESPONSE_SCHEMA,
+        response_schema=_build_response_schema(),
         thinking_config=types.ThinkingConfig(thinking_level="low"),
     )
 
@@ -113,7 +121,7 @@ async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media
             if not response.text:
                 raise ExtractionError("Gemini returned an empty response")
 
-            return _parse_response(response.text)
+            return _parse_response(response.text, schema)
 
         except json.JSONDecodeError as e:
             raise ExtractionError(f"Gemini returned invalid JSON: {e}")
@@ -130,14 +138,14 @@ async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media
     raise ExtractionError(f"Gemini API error after {MAX_RETRIES} attempts: {last_error}")
 
 
-def _parse_response(text: str) -> dict:
+def _parse_response(text: str, schema: dict) -> dict:
     data = json.loads(text.strip())
     extracted = {}
     confidence = {}
 
     for entry in data.get("fields", []):
         name = entry.get("field_name")
-        if name in MASTER_SCHEMA:
+        if name in schema:
             extracted[name] = entry.get("value")
             confidence[name] = entry.get("confidence", 0.7)
 

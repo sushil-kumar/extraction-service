@@ -1,0 +1,10 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Kamble Ishita Raju",
+    "mother_name": "Nita",
+    "result": "PASS",
+    "total_marks": "398",
+    "percentage": "66.33"
+  }
+}

@@ -24,7 +24,7 @@ async def health():
 
 
 @app.post("/extract", response_model=ExtractionResponse)
-async def extract(file: UploadFile = File(...), profile: str | None = None):
+async def extract(file: UploadFile = File(...), profile: str | None = None, module: str | None = None):
     start_time = time.perf_counter()
 
     if file.content_type not in ALLOWED_CONTENT_TYPES:
@@ -36,10 +36,16 @@ async def extract(file: UploadFile = File(...), profile: str | None = None):
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    result = await extract_fields_from_bytes(file_bytes, file.content_type, profile_name=profile)
+    try:
+        result = await extract_fields_from_bytes(file_bytes, file.content_type, profile_name=profile, module=module)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     elapsed = time.perf_counter() - start_time
-    logger.info(f"[TIMING] /extract for '{file.filename}' completed in {elapsed:.2f}s (provider={settings.llm_provider})")
+    logger.info(
+        f"[TIMING] /extract for '{file.filename}' completed in {elapsed:.2f}s "
+        f"(provider={settings.llm_provider}, module={module or 'student_documents'})"
+    )
 
     return ExtractionResponse(
         extractedFields=result["extracted_fields"],
@@ -53,7 +59,7 @@ async def extract(file: UploadFile = File(...), profile: str | None = None):
 
 
 @app.post("/extract-batch", response_model=BatchExtractionResponse)
-async def extract_batch(files: list[UploadFile] = File(...), profile: str | None = None):
+async def extract_batch(files: list[UploadFile] = File(...), profile: str | None = None, module: str | None = None):
     start_time = time.perf_counter()
     if len(files) == 0:
         raise HTTPException(status_code=400, detail="No files provided")
@@ -88,7 +94,7 @@ async def extract_batch(files: list[UploadFile] = File(...), profile: str | None
             continue
 
         try:
-            result = await extract_fields_from_bytes(file_bytes, file.content_type)
+            result = await extract_fields_from_bytes(file_bytes, file.content_type, module=module)
             per_document_results.append(DocumentExtractionResult(
                 filename=file.filename,
                 extractedFields=result["extracted_fields"],
@@ -97,6 +103,11 @@ async def extract_batch(files: list[UploadFile] = File(...), profile: str | None
                 note=result.get("note"),
             ))
             raw_results_for_merge.append(result)
+        except ValueError as e:
+            per_document_results.append(DocumentExtractionResult(
+                filename=file.filename, extractedFields={}, confidence={},
+                status="FAILED", note=str(e),
+            ))
         except Exception as e:
             logger.exception(f"Failed to extract {file.filename}")
             per_document_results.append(DocumentExtractionResult(
@@ -106,7 +117,6 @@ async def extract_batch(files: list[UploadFile] = File(...), profile: str | None
 
     merged = merge_document_results(raw_results_for_merge)
 
-    # apply the target-form mapping profile to the MERGED result, not per-document
     if profile:
         from app.mapping_profiles import apply_mapping
         mapped = apply_mapping(merged["extracted_fields"], merged["confidence"], profile)
@@ -117,7 +127,10 @@ async def extract_batch(files: list[UploadFile] = File(...), profile: str | None
     overall_status = "SUCCESS" if merged_fields else "FAILED"
 
     elapsed = time.perf_counter() - start_time
-    logger.info(f"[TIMING] /extract-batch for {len(files)} file(s) completed in {elapsed:.2f}s (provider={settings.llm_provider})")
+    logger.info(
+        f"[TIMING] /extract-batch for {len(files)} file(s) completed in {elapsed:.2f}s "
+        f"(provider={settings.llm_provider}, module={module or 'student_documents'})"
+    )
 
     return BatchExtractionResponse(
         mergedFields=merged_fields,
