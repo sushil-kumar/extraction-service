@@ -20,6 +20,7 @@ async def extract_fields_from_bytes(
     active_schema = module_config["schema"]
     active_review_fields = module_config["review_fields"]
     use_regex_fallback = module_config["use_regex_fallback"]
+    array_field = module_config["array_field"]
 
     text = get_document_text(file_bytes, content_type)
 
@@ -43,13 +44,13 @@ async def extract_fields_from_bytes(
         try:
             if settings.llm_provider == "gemini":
                 from app.gemini_extractor import extract_with_gemini
-                llm_result = await extract_with_gemini(text, image_bytes, media_type, active_schema)
+                llm_result = await extract_with_gemini(text, image_bytes, media_type, active_schema, array_field)
             elif settings.llm_provider == "ollama":
                 from app.ollama_extractor import extract_with_ollama
                 if image_bytes is None:
                     image_bytes = pdf_to_image_bytes(file_bytes)
                     media_type = "image/png"
-                llm_result = await extract_with_ollama(image_bytes, media_type, active_schema)
+                llm_result = await extract_with_ollama(image_bytes, media_type, active_schema, array_field)
             else:
                 from app.llm_extractor import extract_with_llm
                 llm_result = await extract_with_llm(text, image_bytes, media_type)

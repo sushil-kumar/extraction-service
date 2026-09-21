@@ -83,3 +83,27 @@ def validate_subject_marks_sum(extracted_fields: dict) -> str | None:
         )
 
     return None
+
+def is_valid_pan_format(value: str) -> bool:
+    """PAN structure: 5 letters (first 3 alpha series, 4th = holder type, 5th = surname
+    initial), 4 digits, 1 check letter. This only validates the FORMAT, not that the PAN
+    is real/active — that would require a government API lookup, out of scope here."""
+    return bool(re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]$", value.strip()))
+
+
+def is_valid_aadhaar_format(value: str) -> bool:
+    """Aadhaar structural check: exactly 12 digits, doesn't start with 0 or 1
+    (UIDAI never issues Aadhaar numbers starting with those digits)."""
+    digits = re.sub(r"\s", "", value)
+    return bool(re.match(r"^[2-9]\d{11}$", digits))
+
+# app/extraction_utils.py — new function
+def validate_id_number_formats(extracted_fields: dict) -> list[str]:
+    """Returns field names whose value fails a structural format check —
+    a strong signal of misread, independent of the LLM's own confidence."""
+    warnings = []
+    if "pan_number" in extracted_fields and not is_valid_pan_format(extracted_fields["pan_number"]):
+        warnings.append("pan_number")
+    if "aadhaar_number" in extracted_fields and not is_valid_aadhaar_format(extracted_fields["aadhaar_number"]):
+        warnings.append("aadhaar_number")
+    return warnings

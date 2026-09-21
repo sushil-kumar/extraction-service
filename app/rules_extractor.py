@@ -75,10 +75,52 @@ FIELD_PATTERNS = {
         (r"belongs\s+to\s+the\s+([A-Za-z\-\s]{2,50})\s+caste", 0.8),
     ],
     "caste_category": [
-        (r"(other\s+backward\s+class|obc|scheduled\s+caste|sc|scheduled\s+tribe|st|open|general)", 0.7),
+        (
+            r"(?:recognised\s+as|recognized\s+as|belongs\s+to\s+(?:the\s+)?category|"
+            r"falls?\s+under|classified\s+as|category\s*[:\-]|caste\s+category\s*[:\-]|"
+            r"community\s*[:\-])"
+            r"\s*("
+            r"scheduled\s+caste|s\.?c\.?(?![a-z])|"
+            r"scheduled\s+tribe|s\.?t\.?(?![a-z])|"
+            r"v\.?j\.?\s*/?\s*d\.?t\.?-?a|vimukt(?:a)?\s+jat[ih]\s*/?\s*de-?notified\s+tribes?-?a?|de-?notified\s+tribes?-?a?|"
+            r"nomadic\s+tribes?\s*\(?b\)?\s*/?\s*n\.?t\.?\s*-?\s*1|nt-?1|"
+            r"nomadic\s+tribes?\s*\(?c\)?\s*/?\s*n\.?t\.?\s*-?\s*2|nt-?2|"
+            r"nomadic\s+tribes?\s*\(?d\)?\s*/?\s*n\.?t\.?\s*-?\s*3|nt-?3|"
+            r"other\s+backward\s+class(?:es)?|o\.?b\.?c\.?(?![a-z])|"
+            r"special\s+backward\s+class(?:es)?|s\.?b\.?c\.?(?![a-z])|"
+            r"socially\s+and\s+economically\s+backward\s+class(?:es)?|s\.?e\.?b\.?c\.?(?![a-z])|"
+            r"economically\s+weaker\s+section|e\.?w\.?s\.?(?![a-z])|"
+            r"general|open(?![a-z]))",
+            0.85,
+        ),
     ],
 }
 
+CASTE_CATEGORY_CANONICAL = {
+    "scheduled caste": "Scheduled Caste", "sc": "Scheduled Caste",
+    "scheduled tribe": "Scheduled Tribe", "st": "Scheduled Tribe",
+    "other backward class": "Other Backward Classes",
+    "other backward classes": "Other Backward Classes", "obc": "Other Backward Classes",
+    "special backward classes": "Special Backward Classes", "sbc": "Special Backward Classes",
+    "socially and economically backward classes": "Socially and Economically Backward Classes",
+    "sebc": "Socially and Economically Backward Classes",
+    "economically weaker section": "Economically Weaker Section", "ews": "Economically Weaker Section",
+    "general": "General", "open": "General",
+}
+
+def normalize_caste_category(raw: str) -> str:
+    key = re.sub(r"[.\s]+", " ", raw.strip().lower()).strip()
+    if key in CASTE_CATEGORY_CANONICAL:
+        return CASTE_CATEGORY_CANONICAL[key]
+    if "vimukt" in key or re.match(r"^v\.?j\.?", key) or "denotified" in key or "de-notified" in key or "dt-a" in key or "dt a" in key:
+        return "VJ/DT-A (Vimukt Jati/Denotified Tribes-A)"
+    if ("nomadic" in key or "nt" in key) and ("1" in key or "(b)" in key or " b" in key):
+        return "Nomadic Tribes (B) / NT-1"
+    if ("nomadic" in key or "nt" in key) and ("2" in key or "(c)" in key or " c" in key):
+        return "Nomadic Tribes (C) / NT-2"
+    if ("nomadic" in key or "nt" in key) and ("3" in key or "(d)" in key or " d" in key):
+        return "Nomadic Tribes (D) / NT-3"
+    return raw
 
 def normalize_date(raw: str) -> str | None:
     formats = ["%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y", "%d %B %Y", "%d %b %Y"]
@@ -132,6 +174,10 @@ def extract_with_rules(text: str) -> dict:
                         extracted_fields[field] = normalized
                         confidence[field] = base_confidence
                         break
+                elif field == "caste_category":
+                    extracted_fields[field] = normalize_caste_category(value)
+                    confidence[field] = base_confidence
+                    break
                 else:
                     extracted_fields[field] = value
                     confidence[field] = base_confidence

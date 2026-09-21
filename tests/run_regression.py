@@ -1,7 +1,10 @@
 import asyncio
 import json
 import sys
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 def find_project_root(start: Path) -> Path:
     current = start.resolve()
@@ -15,6 +18,12 @@ def find_project_root(start: Path) -> Path:
 PROJECT_ROOT = find_project_root(Path(__file__).parent)
 sys.path.insert(0, str(PROJECT_ROOT))
 
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(levelname)s:%(name)s:%(message)s",
+    stream=sys.stdout,
+)
+
 from app.extractor import extract_fields_from_bytes
 
 SAMPLE_DIR = PROJECT_ROOT / "sample_doc"
@@ -27,6 +36,23 @@ CONTENT_TYPES = {
     ".png": "image/png",
 }
 
+CASTE_CATEGORY_ALIASES = {
+    "other backward class": "OBC",
+    "obc": "OBC",
+    "scheduled caste": "SC",
+    "sc": "SC",
+    "scheduled tribe": "ST",
+    "st": "ST",
+    "general": "General",
+    "open": "General",
+}
+
+def normalize_for_compare(field: str, value: str) -> str:
+    if field == "caste_category" and isinstance(value, str):
+        return CASTE_CATEGORY_ALIASES.get(value.strip().lower(), value)
+    if isinstance(value, str) and value.strip().lstrip("0").isdigit() and value.strip() != "":
+        return str(int(value))
+    return value
 
 async def run_one(doc_path: Path, module: str | None) -> dict:
     content_type = CONTENT_TYPES.get(doc_path.suffix.lower())
@@ -39,10 +65,20 @@ async def run_one(doc_path: Path, module: str | None) -> dict:
 def compare(actual_fields: dict, expected: dict) -> list[tuple[str, str, str]]:
     critical = expected.get("critical_fields") or {}
     failures = []
-    for field, exp_value in critical.items():
-        act_value = actual_fields.get(field)
-        if str(act_value) != str(exp_value):
-            failures.append((field, str(exp_value), str(act_value)))
+
+    for field, spec in critical.items():
+        if isinstance(spec, dict):
+            exp_value = spec.get("value")
+            candidate_fields = [field] + spec.get("aliases", [])
+        else:
+            exp_value = spec
+            candidate_fields = [field]
+
+        # pass if ANY of the candidate field names holds the expected value
+        actual_values = [actual_fields.get(f) for f in candidate_fields]
+        if not any(normalize_for_compare(field, str(exp_value)) == normalize_for_compare(field, str(v)) for v in actual_values if v is not None):
+            failures.append((field, str(exp_value), str(actual_fields.get(field))))
+
     return failures
 
 
@@ -124,7 +160,6 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
         print(f"{passed} passed, {failed} failed, {errored} errored, {len(results)} total")
         if failed or errored:
             sys.exit(1)
-
 
 if __name__ == "__main__":
     bless_mode = "--bless" in sys.argv

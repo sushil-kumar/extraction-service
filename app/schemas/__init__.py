@@ -12,11 +12,13 @@ MODULE_SCHEMAS = {
         "schema": STUDENT_DOCUMENTS_SCHEMA,
         "review_fields": STUDENT_REVIEW_FIELDS,
         "use_regex_fallback": True,
+        "array_field": "subject_wise_marks",
     },
     "college_establishment": {
         "schema": COLLEGE_ESTABLISHMENT_SCHEMA,
         "review_fields": COLLEGE_REVIEW_FIELDS,
         "use_regex_fallback": False,
+        "array_field": "land_owners",
     },
 }
 

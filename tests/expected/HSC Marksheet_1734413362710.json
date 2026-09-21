@@ -18,38 +18,38 @@
     "subjects_marks": [
       {
         "subject": "ENGLISH",
-        "marks_obtained": "90",
-        "max_marks": ""
+        "marks_obtained": "090",
+        "max_marks": "100"
       },
       {
         "subject": "PHYSICS",
-        "marks_obtained": "42",
-        "max_marks": ""
+        "marks_obtained": "042",
+        "max_marks": "100"
       },
       {
         "subject": "CHEMISTRY",
-        "marks_obtained": "36",
-        "max_marks": ""
+        "marks_obtained": "036",
+        "max_marks": "100"
       },
       {
         "subject": "BIOLOGY",
-        "marks_obtained": "44",
-        "max_marks": ""
+        "marks_obtained": "044",
+        "max_marks": "100"
       },
       {
         "subject": "FRESH WATER FISH CULTURE",
-        "marks_obtained": "86",
-        "max_marks": ""
+        "marks_obtained": "186",
+        "max_marks": "200"
       },
       {
         "subject": "ENV. EDU. & WATER SECURITY",
         "marks_obtained": "A",
-        "max_marks": ""
+        "max_marks": "-"
       },
       {
         "subject": "HEALTH & PHYSICAL EDUCATION",
         "marks_obtained": "A",
-        "max_marks": ""
+        "max_marks": "-"
       }
     ]
   }

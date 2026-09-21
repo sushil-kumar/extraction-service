@@ -67,9 +67,16 @@ class SubjectMark(BaseModel):
     marks_obtained: str
     max_marks: str = ""
 
+class LandOwner(BaseModel):
+    khata_number: str
+    owner_name: str
+    area: str = ""
+    assessment: str = ""
+
 class ExtractionSchema(BaseModel):
     fields: list[FieldEntry]
     subject_wise_marks: list[SubjectMark] = []
+    land_owners: list[LandOwner] = []
 
 
 def _parse_subjects_fallback(raw_value: str) -> list[dict] | None:
@@ -131,21 +138,75 @@ def _parse_subjects_fallback(raw_value: str) -> list[dict] | None:
             entries.append({"subject": subject, "marks_obtained": marks, "max_marks": ""})
     return entries if entries else None
 
+def _parse_keyvalue_list_fallback(raw_value: str, keys: list[str]) -> list[dict] | None:
+    """Generalized version of the subject-marks recovery parser — handles the
+    same JSON / Python-literal / regex-pair / comma-list formats, for any
+    ordered pair of keys (e.g. khata_number+owner_name instead of subject+marks_obtained)."""
+    raw_value = raw_value.strip()
+    key_a, key_b = keys[0], keys[1]
 
-async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict) -> dict:
+    try:
+        cleaned = raw_value if raw_value.startswith("[") else (
+            raw_value.split(":", 1)[-1].strip() if ":" in raw_value else raw_value
+        )
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, list) and len(parsed) > 0:
+            return parsed
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    try:
+        cleaned = raw_value if raw_value.startswith("[") else (
+            raw_value.split(":", 1)[-1].strip() if ":" in raw_value else raw_value
+        )
+        parsed = ast.literal_eval(cleaned)
+        if isinstance(parsed, list) and len(parsed) > 0 and all(isinstance(x, dict) for x in parsed):
+            return parsed
+    except (ValueError, SyntaxError):
+        pass
+
+    pattern = re.compile(
+        rf'["\']?{key_a}["\']?\s*:\s*["\']?([^,"\'\n]+?)["\']?\s*,?\s*'
+        rf'["\']?{key_b}["\']?\s*:\s*["\']?([^,"\'\n]+?)["\']?\s*(?:,|\n|\}}|$)',
+        re.IGNORECASE,
+    )
+    matches = pattern.findall(raw_value)
+    entries = [{key_a: a.strip(), key_b: b.strip()} for a, b in matches if a.strip() and b.strip()]
+    return entries if entries else None
+
+class ExtractionSchemaBase(BaseModel):
+    fields: list[FieldEntry]
+    subject_wise_marks: list[SubjectMark] = []
+    land_owners: list[LandOwner] = []
+    # both remain valid pydantic fields on the class — but we only PROMPT for
+    # and PARSE the one relevant to this module, so the other stays empty and
+    # doesn't dilute the model's attention via the prompt text itself.
+
+async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict, array_field: str) -> dict:
     field_list = "\n".join(f"- {k}: {v}" for k, v in schema.items())
+
+    if array_field == "subject_wise_marks":
+        array_instruction = (
+            f"IMPORTANT — subject-wise marks: do NOT create a field_name called 'subjects', "
+            f"'subject_wise_marks', or 'subjects_marks' inside 'fields'. Instead, use the "
+            f"separate top-level 'subject_wise_marks' array. Add one entry per subject there, "
+            f"with 'subject', 'marks_obtained', and 'max_marks'. CRITICAL: marks_obtained must "
+            f"be copied EXACTLY as the single number printed in that subject's marks column."
+        )
+    elif array_field == "land_owners":
+        array_instruction = (
+            f"IMPORTANT — for land records with multiple owners/khatedars, use the top-level "
+            f"'land_owners' array, NOT a field_name inside 'fields'. One entry per owner, with "
+            f"khata_number, owner_name, area, and assessment."
+        )
+    else:
+        array_instruction = ""
+
     user_prompt = (
         f"{SYSTEM_PROMPT}\n\n"
         f"Extract any of these fields present in the document. For each one found, "
         f"add an entry to 'fields' with field_name (must match exactly), value, and confidence.\n\n{field_list}\n\n"
-        f"IMPORTANT — subject-wise marks: do NOT create a field_name called 'subjects', "
-        f"'subject_wise_marks', or 'subjects_marks' inside 'fields'. Instead, use the separate "
-        f"top-level 'subject_wise_marks' array. Add one entry per subject there, with 'subject', "
-        f"'marks_obtained', and 'max_marks'. CRITICAL: marks_obtained must be copied EXACTLY as "
-        f"the single number printed in that subject's marks column — do not calculate, split, sum, "
-        f"or infer it from max_marks or any other value. If a subject shows one combined number "
-        f"(e.g. for a vocational/composite subject), report that exact number as marks_obtained, "
-        f"even if it looks unusual relative to max_marks."
+        f"{array_instruction}"
     )
 
     keep_alive_value = settings.ollama_keep_alive
@@ -155,7 +216,7 @@ async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict)
     response = client.chat(
         model=settings.ollama_model,
         messages=[{"role": "user", "content": user_prompt, "images": [image_bytes]}],
-        format=ExtractionSchema.model_json_schema(),
+        format=ExtractionSchemaBase.model_json_schema(),
         options={"temperature": 0, "num_ctx": 12288, "num_predict": 2048},
         keep_alive=keep_alive_value,
     )
@@ -178,9 +239,9 @@ async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict)
     logger.info(f"Ollama raw content: {content!r}")
 
     try:
-        parsed = ExtractionSchema.model_validate_json(content)
+        parsed = ExtractionSchemaBase.model_validate_json(content)
     except Exception as e:
-        logger.error(f"Failed to parse Ollama content as ExtractionSchema: {e}. Raw content: {content!r}")
+        logger.error(f"Failed to parse Ollama content: {e}. Raw content: {content!r}")
         raise ExtractionError(f"Ollama returned unparseable structured output: {e}")
 
     extracted = {}
@@ -190,29 +251,46 @@ async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict)
             extracted[entry.field_name] = entry.value
             confidence[entry.field_name] = entry.confidence
 
-    # Recover subject data even if the model stuffed it into 'fields' instead
-    # of using the proper 'subject_wise_marks' array.
-    SUBJECT_FIELD_ALIASES = {"subjects", "subject_wise_marks", "subjects_marks"}
-    recovered_subjects = None
+    # only attempt recovery/parsing for the array relevant to THIS module
+    if array_field == "subject_wise_marks":
+        SUBJECT_FIELD_ALIASES = {"subjects", "subject_wise_marks", "subjects_marks"}
+        recovered = None
+        for alias in SUBJECT_FIELD_ALIASES:
+            if alias in extracted:
+                raw_value = extracted.pop(alias)
+                confidence.pop(alias, None)
+                recovered = _parse_subjects_fallback(raw_value)
+                break
 
-    for alias in SUBJECT_FIELD_ALIASES:
-        if alias in extracted:
-            raw_value = extracted.pop(alias)
-            confidence.pop(alias, None)
-            recovered_subjects = _parse_subjects_fallback(raw_value)
-            if recovered_subjects is None:
-                logger.warning(f"Could not parse subject data recovered from field '{alias}': {raw_value!r}")
-            break
+        if recovered:
+            extracted["subjects_marks"] = recovered
+            confidence["subjects_marks"] = 0.85
+        elif parsed.subject_wise_marks:
+            extracted["subjects_marks"] = [
+                {"subject": s.subject, "marks_obtained": s.marks_obtained, "max_marks": s.max_marks}
+                for s in parsed.subject_wise_marks
+            ]
+            confidence["subjects_marks"] = 1.0
 
-    if recovered_subjects:
-        extracted["subjects_marks"] = recovered_subjects
-        confidence["subjects_marks"] = 0.85
-    elif parsed.subject_wise_marks:
-        extracted["subjects_marks"] = [
-            {"subject": s.subject, "marks_obtained": s.marks_obtained, "max_marks": s.max_marks}
-            for s in parsed.subject_wise_marks
-        ]
-        confidence["subjects_marks"] = 1.0
+    elif array_field == "land_owners":
+        LAND_OWNER_ALIASES = {"land_owners", "landowners", "owners"}
+        recovered = None
+        for alias in LAND_OWNER_ALIASES:
+            if alias in extracted:
+                raw_value = extracted.pop(alias)
+                confidence.pop(alias, None)
+                recovered = _parse_keyvalue_list_fallback(raw_value, ["khata_number", "owner_name"])
+                break
+
+        if recovered:
+            extracted["land_owners"] = recovered
+            confidence["land_owners"] = 0.85
+        elif parsed.land_owners:
+            extracted["land_owners"] = [
+                {"khata_number": o.khata_number, "owner_name": o.owner_name, "area": o.area, "assessment": o.assessment}
+                for o in parsed.land_owners
+            ]
+            confidence["land_owners"] = 1.0
 
     extracted, confidence = filter_placeholders(extracted, confidence)
     return {"extracted_fields": extracted, "confidence": confidence}

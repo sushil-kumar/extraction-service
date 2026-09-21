@@ -92,10 +92,14 @@ async def extract_with_gemini(text: str | None, image_bytes: bytes | None, media
         raise LLMNotConfiguredError("Gemini extraction unavailable: no GEMINI_API_KEY configured")
 
     field_list = "\n".join(f"- {k}: {v}" for k, v in schema.items())
-    user_prompt = (
-        f"Extract any of these fields present in the document into 'fields':\n{field_list}\n\n"
-        f"Separately, extract subject-wise marks into 'subject_wise_marks' if a marks table is present."
-    )
+    f array_field == "subject_wise_marks":
+        array_instruction = "Separately, extract subject-wise marks into 'subject_wise_marks' if a marks table is present."
+    elif array_field == "land_owners":
+        array_instruction = "Separately, extract each landholder into 'land_owners' if the document lists multiple owners."
+    else:
+        array_instruction = ""
+
+    user_prompt = f"Extract any of these fields present in the document into 'fields':\n{field_list}\n\n{array_instruction}"
 
     if image_bytes:
         contents = [user_prompt, types.Part.from_bytes(data=image_bytes, mime_type=media_type)]
