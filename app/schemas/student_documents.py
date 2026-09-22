@@ -32,7 +32,12 @@ MASTER_SCHEMA = {
 
     "exam_month_year": "Month and year of the examination",
     "subject_wise_marks": "Subject-wise marks, including marks obtained and maximum marks per subject — extracted separately as a structured list, not a single value",
-    "total_marks": "Total marks obtained out of maximum",
+    "total_marks": "Total marks OBTAINED (not the maximum possible). On a marksheet's 'Total "
+               "Marks' row, TWO numbers usually appear side by side — the maximum (e.g. "
+               "'600') and the actual total obtained (e.g. '398') — with the obtained total "
+               "confirmed by a spelled-out word form next to it (e.g. 'Three Hundred and "
+               "Ninetyeight'). Always extract the obtained total, using the word form to "
+               "verify which number is correct — never the maximum.",
     "percentage": "Overall percentage",
     "result": "PASS/FAIL or grade result",
 

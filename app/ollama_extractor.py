@@ -30,6 +30,14 @@ Rules:
 - Subject-wise marks are IMPORTANT and MUST be extracted whenever a marks table is present:
   add one entry per subject to the 'subject_wise_marks' array, with subject name and marks
   obtained. Do not put subject marks into 'fields'.
+- Subject marks are copied exactly as printed, digit by digit — never truncated or adjusted
+  to "look normal." EXAMPLE: a composite subject like "Fresh Water Fish Culture" can be worth
+  200 total marks, so a mark of "186" (three digits, greater than 100) is correct and must
+  NOT be shortened to "86" just because most other subjects on the same marksheet cap at 100.
+- On a marksheet's 'Total Marks' row, do not confuse the maximum possible total with the
+  actual total obtained — they appear as two separate numbers. EXAMPLE: "Total Marks: 600 |
+  398 | THREE HUNDRED AND NINETYEIGHT" — the correct total_marks value is 398 (confirmed by
+  the word form), NOT 600 (which is the maximum).
 - If the document has no subject-wise marks table at all (e.g. leaving certificates, caste
   certificates), do NOT add any entries to 'subject_wise_marks' — leave the array completely
   empty rather than adding a placeholder entry.
@@ -212,6 +220,13 @@ async def extract_with_ollama(image_bytes: bytes, media_type: str, schema: dict,
             f"separate top-level 'subject_wise_marks' array. Add one entry per subject there, "
             f"with 'subject', 'marks_obtained', and 'max_marks'. CRITICAL: marks_obtained must "
             f"be copied EXACTLY as the single number printed in that subject's marks column."
+            f"CRITICAL: marks_obtained must be copied EXACTLY as the single number printed in that "
+            f"subject's marks column — character by character, do not calculate, split, sum, round, or "
+            f"infer it from max_marks or any other value. Composite/vocational subjects can have "
+            f"max_marks greater than 100 (e.g. 200), and their marks_obtained can correctly be a "
+            f"3-digit number greater than 100 (e.g. '186') — do NOT truncate or reduce a 3-digit mark "
+            f"to 2 digits just because most other subjects cap at 100. Read every digit of the printed "
+            f"number carefully, including the hundreds digit if present."
         )
     elif array_field == "land_owners":
         array_instruction = (

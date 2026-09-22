@@ -18,22 +18,22 @@
     "subjects_marks": [
       {
         "subject": "ENGLISH",
-        "marks_obtained": "90",
+        "marks_obtained": "090",
         "max_marks": "100"
       },
       {
         "subject": "PHYSICS",
-        "marks_obtained": "42",
+        "marks_obtained": "042",
         "max_marks": "100"
       },
       {
         "subject": "CHEMISTRY",
-        "marks_obtained": "36",
+        "marks_obtained": "036",
         "max_marks": "100"
       },
       {
         "subject": "BIOLOGY",
-        "marks_obtained": "44",
+        "marks_obtained": "044",
         "max_marks": "100"
       },
       {
