@@ -1,0 +1,10 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "document_type": "pan_card",
+    "candidate_name": "SHREYA UMESH SAWANT",
+    "father_name": "BAPURAO VITHOBA BHAT",
+    "date_of_birth": "1979-02-02",
+    "pan_number": "BPJPS8242D"
+  }
+}

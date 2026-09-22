@@ -1,7 +1,7 @@
 MASTER_SCHEMA = {
     "document_type": "Classify this document as one of: marksheet, caste_certificate, "
-                      "leaving_certificate, id_card, domicile_certificate, income_certificate, other. "
-                      "Always include this field — pick the single best match.",
+                  "leaving_certificate, id_card, domicile_certificate, income_certificate, "
+                  "aadhaar_card, pan_card, other. Always include this field — pick the single best match.",
 
     "candidate_name": "Full name of the person as printed on the document",
     "father_name": "Father's or guardian's name",
@@ -46,6 +46,15 @@ MASTER_SCHEMA = {
     "issuing_authority": "Authority or body that issued the document",
     "issuing_place": "Place where the certificate was issued (e.g. city named at bottom of certificate)",
     "document_number": "Any ID/document/reference number printed on it",
+
+    "aadhaar_number": "The 12-digit UIDAI Aadhaar number specifically, printed as 4-4-4 digit "
+                   "groups (e.g. '1234 5678 9012'), usually near the UIDAI logo/QR code. "
+                   "Do NOT use this field's value for roll_number, document_number, or "
+                   "certificate_number — those are separate fields. If the Aadhaar number is "
+                   "partially masked/blacked out on the document (common for privacy, e.g. "
+                   "showing only the last 4 digits), extract only what is actually visible — "
+                   "do not guess or fill in the masked portion.",
+    "pan_number": "10-character PAN number, format 5 letters + 4 digits + 1 letter (e.g. 'ABCDE1234F')",
 }
 
 REVIEW_RECOMMENDED_FIELDS = {
@@ -61,4 +70,6 @@ REVIEW_RECOMMENDED_FIELDS = {
     "registration_number",
     "date_of_admission",
     "date_of_leaving",
+    "aadhaar_number",
+    "pan_number",
 }

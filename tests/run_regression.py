@@ -130,7 +130,7 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
                 expected["critical_fields"] = {k: actual_fields.get(k) for k in existing_critical}
                 note = f"({len(existing_critical)} tracked field(s) refreshed)"
 
-            expected_path.write_text(json.dumps(expected, indent=2, ensure_ascii=False))
+            expected_path.write_text(json.dumps(expected, indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"BLESSED - {doc_path.name} {note}")
             results.append((doc_path.name, "BLESSED", []))
             continue

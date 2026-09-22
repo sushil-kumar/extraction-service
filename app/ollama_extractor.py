@@ -22,8 +22,9 @@ Rules:
   you're unsure — pick the closest match.
 - Only include fields you can actually find explicit evidence for in the document.
 - Never guess or hallucinate — if a field isn't visibly present, DO NOT add it to the output
-  at all. Do not write "not mentioned", "N/A", "unknown", or any placeholder — simply omit
-  that field_name entirely from the 'fields' array.
+  at all, in ANY language. Do not write "not mentioned" or any equivalent phrase in English,
+  Hindi, Marathi, or any other language — simply omit that field_name entirely from the
+  'fields' array.
 - confidence is a 0.0-1.0 score for how certain you are about that field's value.
 - Normalize dates to YYYY-MM-DD.
 - Subject-wise marks are IMPORTANT and MUST be extracted whenever a marks table is present:
@@ -52,6 +53,25 @@ Rules:
   "1982-12-20". Do not transpose or misread digits in the bracketed form; if the two forms
   genuinely conflict after careful digit-by-digit reading, lower your confidence score for
   that field rather than guessing.
+- On the FRONT of an Aadhaar card specifically, the 12-digit Aadhaar number usually appears
+  with NO label at all — just three groups of 4 digits at the bottom of the card (format:
+  'XXXX XXXX XXXX'). This unlabeled number IS the Aadhaar number. If document_type is
+  aadhaar_card and you see an unlabeled 12-digit number in this exact grouped format, route
+  it to 'aadhaar_number' — do NOT put it in 'document_number', 'roll_number', or
+  'certificate_number', even though it has no visible label.
+- Standard Aadhaar cards show ONLY: name, date of birth, gender, address, and Aadhaar number
+  (plus the issuing authority "Unique Identification Authority of India"). They do NOT
+  normally include a father's or mother's name field. Do not populate father_name or
+  mother_name for an aadhaar_card unless there is an explicit, clearly labeled "Father's
+  Name" or "S/O" field printed on the card — never infer a name from a signature, stamp, or
+  unrelated text elsewhere on the document.
+- On a PAN card, the PAN number often appears on its OWN line, directly below a section
+  heading ("Permanent Account Number Card" / "स्थायी लेखा संख्या कार्ड"), rather than inline
+  with a "PAN No:" label. The value itself is always exactly 10 characters: 5 uppercase
+  letters + 4 digits + 1 uppercase letter (e.g. 'BPJPS8242D'). If document_type is pan_card
+  and you see a standalone 10-character code matching this exact pattern anywhere on the
+  card, extract it as 'pan_number' — do not skip it just because there's no inline label
+  directly touching it.
 """
 
 class ExtractionError(Exception):

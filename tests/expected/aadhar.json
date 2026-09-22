@@ -1,0 +1,9 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Tejashree Vijay Khanorkar",
+    "date_of_birth": "1990-07-28",
+    "gender": "FEMALE",
+    "aadhaar_number": "2979 8400 7734"
+  }
+}

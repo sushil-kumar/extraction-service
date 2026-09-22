@@ -94,6 +94,14 @@ FIELD_PATTERNS = {
             0.85,
         ),
     ],
+    "aadhaar_number": [
+        (r"(?:aadhaar|adhar|uid)\s*(?:no\.?|number)?\s*[:\-]?\s*(\d{4}[\s\-]?\d{4}[\s\-]?\d{4})", 0.9),
+        (r"\b(\d{4}\s\d{4}\s\d{4})\b", 0.6),  # unlabeled front-page format
+    ],
+    "pan_number": [
+        (r"(?:pan|permanent\s+account\s+number)\s*(?:no\.?|number)?\s*[:\-]?\s*([A-Z]{5}\d{4}[A-Z])", 0.9),
+        (r"\b([A-Z]{5}\d{4}[A-Z])\b", 0.75),  # unlabeled — the format itself is distinctive enough
+    ],
 }
 
 CASTE_CATEGORY_CANONICAL = {

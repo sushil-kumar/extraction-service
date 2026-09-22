@@ -7,9 +7,16 @@ from app.schemas import get_module_config
 from app.extraction_utils import (
     filter_placeholders, get_fields_requiring_review,
     validate_subject_marks_sum, clean_subjects_marks,
+    deduplicate_identity_number, enforce_document_type_whitelist,
+    normalize_document_type, check_document_quality
 )
 
 logger = logging.getLogger(__name__)
+
+# Fields where LLM recall has proven unreliable enough (across many repeated
+# test runs) that we always cross-check with regex, regardless of whether the
+# LLM call succeeded — not just as a fallback when it fails outright.
+ALWAYS_SUPPLEMENT_FIELDS = {"caste_category", "pan_number", "aadhaar_number"}
 
 
 async def extract_fields_from_bytes(
@@ -69,20 +76,45 @@ async def extract_fields_from_bytes(
     else:
         note = f"LLM not configured for provider '{settings.llm_provider}'"
 
+    # compute regex extraction once, reused below for both the fallback path
+    # (LLM failed entirely) and the always-on supplement path (LLM succeeded
+    # but may have missed/misrouted a known-flaky field)
+    rules_result = extract_with_rules(text) if (use_regex_fallback or ALWAYS_SUPPLEMENT_FIELDS) else None
+
     if not llm_succeeded and use_regex_fallback:
         logger.info("LLM extraction unavailable/failed — falling back to regex-based extraction")
-        rules_result = extract_with_rules(text)
         for field, value in rules_result["extracted_fields"].items():
             if field not in extracted:
                 extracted[field] = value
                 confidence[field] = rules_result["confidence"][field]
     elif not llm_succeeded:
-        logger.info(f"LLM extraction unavailable/failed and this module has no regex fallback — result will be empty")
+        logger.info("LLM extraction unavailable/failed and this module has no regex fallback — result will be empty")
+
+    # always-on supplement: for specific known-flaky fields, cross-check with
+    # regex even after a successful LLM call — only for fields that actually
+    # belong to this module's schema, so we don't leak irrelevant fields
+    # across modules (e.g. never inject caste_category into a land record)
+    if rules_result:
+        for field in ALWAYS_SUPPLEMENT_FIELDS:
+            if field not in active_schema:
+                continue
+            if not extracted.get(field):
+                if field in rules_result["extracted_fields"]:
+                    extracted[field] = rules_result["extracted_fields"][field]
+                    confidence[field] = rules_result["confidence"][field]
 
     extracted, confidence = filter_placeholders(extracted, confidence)
     extracted = clean_subjects_marks(extracted)
+    extracted = deduplicate_identity_number(extracted)
+    extracted = normalize_document_type(extracted)
+    extracted, confidence = enforce_document_type_whitelist(extracted, confidence)
+
     if "subjects_marks" not in extracted:
         confidence.pop("subjects_marks", None)
+
+    quality_note = check_document_quality(text, extracted, active_review_fields)
+    if quality_note:
+        note = f"{note}; {quality_note}" if note else quality_note
 
     marks_warning = validate_subject_marks_sum(extracted)
     if marks_warning:

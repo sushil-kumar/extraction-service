@@ -1,0 +1,11 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Shreya Umesh Sawant",
+    "date_of_birth": "02/02/1979",
+    "gender": "FEMALE",
+    "address": "Fortune Symphony Cts, Flat no-E-203, Plot no.3A, Near Shanti Kunj Ashram, Kewala, New Panvel, Panvel, Raigary, Maharashtra - 410206",
+    "aadhaar_number": "9909 9038 5333",
+    "document_number": "2722/17101/24425"
+  }
+}
