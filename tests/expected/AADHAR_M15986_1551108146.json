@@ -1,0 +1,10 @@
+{
+  "module": "student_documents",
+  "critical_fields": {
+    "candidate_name": "Rohan Ashok Patil",
+    "date_of_birth": "1988-11-10",
+    "gender": "MALE",
+    "address": "plot no 28, hareshwar nagar, ring road, Jalgaon, Jalgaon Maharashtra - 425001",
+    "aadhaar_number": "9189 9528 9080"
+  }
+}
