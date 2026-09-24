@@ -20,13 +20,20 @@ def is_placeholder_value(value) -> bool:
     return cleaned == "" or cleaned in PLACEHOLDER_VALUES
 
 
-def filter_placeholders(extracted_fields: dict, confidence: dict) -> tuple[dict, dict]:
+def filter_placeholders(extracted_fields: dict, confidence: dict, schema: dict | None = None) -> tuple[dict, dict]:
+    """Remove any field whose value is a placeholder/not-found phrase, OR
+    whose value is just an echo of the field's own schema description
+    (a hallucination pattern where the model answers with the question
+    instead of an actual value)."""
     clean_fields = {}
     clean_confidence = {}
     for field, value in extracted_fields.items():
-        if not is_placeholder_value(value):
-            clean_fields[field] = value
-            clean_confidence[field] = confidence.get(field, 0.0)
+        if is_placeholder_value(value):
+            continue
+        if schema and is_label_echo(value, schema.get(field, "")):
+            continue
+        clean_fields[field] = value
+        clean_confidence[field] = confidence.get(field, 0.0)
     return clean_fields, clean_confidence
 
 
@@ -237,3 +244,16 @@ def check_document_quality(text: str, extracted_fields: dict, review_fields: set
         return LOW_QUALITY_NOTE
 
     return None
+
+def is_label_echo(value: str, description: str) -> bool:
+    """Catches a common hallucination pattern: the model returns the field's
+    own description/label text as if it were the answer, instead of an
+    actual value or omitting the field entirely."""
+    if not isinstance(value, str) or not description:
+        return False
+    value_words = set(value.strip().lower().split())
+    desc_words = set(description.lower().split())
+    if not value_words:
+        return False
+    overlap = len(value_words & desc_words) / len(value_words)
+    return overlap > 0.6

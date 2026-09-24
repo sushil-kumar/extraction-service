@@ -44,12 +44,4 @@ COLLEGE_ESTABLISHMENT_SCHEMA = {
     "document_number": "Any reference/document number printed on it, distinct from PU-ID and survey number",
 }
 
-REVIEW_RECOMMENDED_FIELDS = {
-    "pu_id",
-    "survey_number",
-    "total_assessment",
-    "last_mutation_number",
-    "last_mutation_date",
-    "document_number",
-    "encumbrances",  # legally significant — always worth a human check regardless of confidence
-}
+REVIEW_RECOMMENDED_FIELDS = set(COLLEGE_ESTABLISHMENT_SCHEMA.keys()) - {"document_type"}

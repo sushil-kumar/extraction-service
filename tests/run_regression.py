@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 import logging
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
     EXPECTED_DIR.mkdir(parents=True, exist_ok=True)
     results = []
 
+    test_start_time = time.perf_counter()
     for doc_path in sorted(SAMPLE_DIR.iterdir()):
         if doc_path.suffix.lower() not in CONTENT_TYPES:
             continue
@@ -109,6 +111,7 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
             expected = json.loads(expected_path.read_text())
 
         print(f"Running {doc_path.name} ...")
+        start_time = time.perf_counter()
 
         try:
             result = await run_one(doc_path, expected.get("module"))
@@ -148,6 +151,9 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
             if flagged_and_failed:
                 print(f"         (note: {sorted(flagged_and_failed)} already flagged for manual review — known-flaky)")
 
+        elapsed = time.perf_counter() - start_time
+        print(f"[TIMING] Time taken for {doc_path.name}: {elapsed:.2f}s ")
+
     print()
     passed = sum(1 for _, s, _ in results if s == "PASS")
     failed = sum(1 for _, s, _ in results if s == "FAIL")
@@ -157,7 +163,10 @@ async def main(bless: bool = False, name_filter: list[str] | None = None):
     if bless:
         print(f"{blessed} blessed, {errored} errored, {len(results)} total")
     else:
-        print(f"{passed} passed, {failed} failed, {errored} errored, {len(results)} total")
+        elapsed = time.perf_counter() - test_start_time
+        print(f"{passed} passed, {failed} failed, {errored} errored, {len(results)} total")        
+        print(f"[TIMING] Test run completed in {elapsed:.2f}s ")
+
         if failed or errored:
             sys.exit(1)
 

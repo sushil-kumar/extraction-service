@@ -103,7 +103,7 @@ async def extract_fields_from_bytes(
                     extracted[field] = rules_result["extracted_fields"][field]
                     confidence[field] = rules_result["confidence"][field]
 
-    extracted, confidence = filter_placeholders(extracted, confidence)
+    extracted, confidence = filter_placeholders(extracted, confidence, schema=active_schema)
     extracted = clean_subjects_marks(extracted)
     extracted = deduplicate_identity_number(extracted)
     extracted = normalize_document_type(extracted)
