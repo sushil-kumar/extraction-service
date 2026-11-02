@@ -24,6 +24,7 @@ logging.basicConfig(
     format="%(levelname)s:%(name)s:%(message)s",
     stream=sys.stdout,
 )
+logging.getLogger("app.extractor").setLevel(logging.INFO)
 
 from app.extractor import extract_fields_from_bytes
 

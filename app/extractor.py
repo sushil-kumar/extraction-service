@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # test runs) that we always cross-check with regex, regardless of whether the
 # LLM call succeeded — not just as a fallback when it fails outright.
 ALWAYS_SUPPLEMENT_FIELDS = {"caste_category", "pan_number", "aadhaar_number"}
+LOW_CONFIDENCE_THRESHOLD = 0.7
 
 
 async def extract_fields_from_bytes(
@@ -38,7 +39,55 @@ async def extract_fields_from_bytes(
     llm_confidence_raw = None
     llm_succeeded = False
 
-    if settings.llm_available:
+    rules_result = extract_with_rules(text) if (use_regex_fallback or ALWAYS_SUPPLEMENT_FIELDS) else None
+    if use_regex_fallback and rules_result:
+        extracted = dict(rules_result["extracted_fields"])
+        confidence = dict(rules_result["confidence"])
+
+    regex_quality_note = (
+        check_document_quality(text, extracted, active_review_fields)
+        if use_regex_fallback else None
+    )
+    regex_needs_llm = (
+        not extracted
+        or len(extracted) <= 3
+        or any(score < LOW_CONFIDENCE_THRESHOLD for score in confidence.values())
+        or regex_quality_note is not None
+    )
+    should_call_llm = not use_regex_fallback or regex_needs_llm
+
+    if use_regex_fallback and regex_needs_llm and settings.llm_available:
+        low_confidence_fields = {
+            field: score for field, score in confidence.items()
+            if score < LOW_CONFIDENCE_THRESHOLD
+        }
+        if not extracted:
+            logger.info(
+                "Regex extraction returned no fields; invoking %s LLM extraction",
+                settings.llm_provider,
+            )
+        elif regex_quality_note:
+            logger.info(
+                "Regex extraction indicates low document quality (%s); invoking %s LLM extraction",
+                regex_quality_note,
+                settings.llm_provider,
+            )
+        elif len(extracted) <= 2:
+            logger.info(
+                "Regex extraction returned only %d fields i.e. (%s); invoking %s LLM extraction",
+                len(extracted),
+                ", ".join(extracted.keys()),
+                settings.llm_provider,
+            )
+        else:
+            logger.info(
+                "Regex extraction confidence below %.2f for fields and scores %s; invoking %s LLM extraction",
+                LOW_CONFIDENCE_THRESHOLD,
+                low_confidence_fields,
+                settings.llm_provider,
+            )
+
+    if should_call_llm and settings.llm_available:
         image_bytes = None
         media_type = None
         if not text and content_type == "application/pdf":
@@ -66,27 +115,33 @@ async def extract_fields_from_bytes(
             llm_confidence_raw = llm_result["confidence"]
 
             if llm_fields_raw:
-                extracted = dict(llm_fields_raw)
-                confidence = dict(llm_confidence_raw)
+                for field, value in llm_fields_raw.items():
+                    llm_score = llm_confidence_raw.get(field, 0.0)
+                    current_score = confidence.get(field, 0.0)
+                    if field not in extracted or (
+                        use_regex_fallback
+                        and (
+                            regex_quality_note is not None
+                            or (
+                                current_score < LOW_CONFIDENCE_THRESHOLD
+                                and llm_score > current_score
+                            )
+                        )
+                    ):
+                        extracted[field] = value
+                        confidence[field] = llm_score
                 llm_succeeded = True
 
         except Exception as e:
             logger.exception(f"LLM extraction failed ({settings.llm_provider})")
             note = str(e)
-    else:
+    elif should_call_llm:
         note = f"LLM not configured for provider '{settings.llm_provider}'"
 
-    # compute regex extraction once, reused below for both the fallback path
-    # (LLM failed entirely) and the always-on supplement path (LLM succeeded
-    # but may have missed/misrouted a known-flaky field)
-    rules_result = extract_with_rules(text) if (use_regex_fallback or ALWAYS_SUPPLEMENT_FIELDS) else None
-
-    if not llm_succeeded and use_regex_fallback:
-        logger.info("LLM extraction unavailable/failed — falling back to regex-based extraction")
-        for field, value in rules_result["extracted_fields"].items():
-            if field not in extracted:
-                extracted[field] = value
-                confidence[field] = rules_result["confidence"][field]
+    if use_regex_fallback and not regex_needs_llm:
+        logger.info("Regex extraction produced sufficiently confident results; skipping LLM extraction")
+    elif not llm_succeeded and use_regex_fallback:
+        logger.info("LLM extraction unavailable/failed — retaining regex-based extraction results")
     elif not llm_succeeded:
         logger.info("LLM extraction unavailable/failed and this module has no regex fallback — result will be empty")
 
